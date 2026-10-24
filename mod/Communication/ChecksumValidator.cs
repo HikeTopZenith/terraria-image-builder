@@ -79,6 +79,47 @@ namespace TerrariaImageBuilder.Communication
             }
         }
 
+        /// <summary>
+        /// 黄金向量自检：模组加载时跑一次，确参与外部端（Python）的字节级口径没漂移。
+        ///
+        /// 输入故意用「键乱序 + 带空格缩进」的原始 JSON，这样一次就能覆盖
+        /// 解析 → 递归排序 → 紧凑序列化 → UTF-8 → SHA-256 整条链路。
+        /// 预期哈希必须与 tests/test_checksum_golden.py 里的 GOLDEN_CHECKSUM 一致。
+        /// </summary>
+        public static bool SelfCheck(out string detail)
+        {
+            const string messyJson = @"{
+  ""Timestamp"": 1792718267209,
+  ""OriginY"": 430,
+  ""Chunks"": [
+    { ""Blocks"": [
+        { ""Y"": 0, ""TileId"": 0, ""X"": 0 },
+        { ""X"": 1, ""TileId"": 1, ""Y"": 0 },
+        { ""TileId"": 53, ""Y"": 0, ""X"": 2 }
+      ],
+      ""DelayMs"": 200,
+      ""Index"": 0
+    }
+  ],
+  ""Type"": ""PlaceBlocks"",
+  ""MaxTotalBlocks"": 0,
+  ""TotalBlocks"": 3,
+  ""DelayWithinChunkMs"": 0,
+  ""ChunkCount"": 1,
+  ""SkipExistingBlocks"": false,
+  ""OriginX"": 4200,
+  ""DelayBetweenChunksMs"": 200
+}";
+            const string expected = "99facb66a94fdec4a304aba7023da66ff455e9607432dd8450716f5705e464ac";
+
+            string actual = ComputeChecksum(messyJson);
+            bool ok = string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+            detail = ok
+                ? "校验和黄金向量自检通过"
+                : $"校验和黄金向量自检失败：期望 {expected}，实际 {actual ?? "(null)"}";
+            return ok;
+        }
+
         public static bool VerifyChecksum(string json, string expectedChecksum)
         {
             if (string.IsNullOrWhiteSpace(expectedChecksum)) return false;

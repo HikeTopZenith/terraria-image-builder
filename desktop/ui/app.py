@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import math
 import os
 import queue
@@ -87,6 +88,9 @@ DELTA_DEFAULT = "ciede2000"
 # 本桌面端认的通信协议版本，必须与模组 CommunicationManager.ProtocolVersion 一致。
 # 两边是分开发布的（模组走工坊，桌面端走 Releases），版本对不上要给用户明确提示。
 CLIENT_PROTOCOL_VERSION = 1
+
+# 桌面端版本号（与模组各自独立；导出诊断包时会写进去，便于对版本）
+APP_VERSION = "1.2.2"
 
 DELTA_LABEL_TO_KEY = {label: key for key, label in DELTA_LABELS}
 DELTA_KEY_TO_LABEL = {key: label for key, label in DELTA_LABELS}
@@ -340,6 +344,11 @@ class App(_TkBase):
         io_row.pack(fill=tk.X, pady=(6, 0))
         ttk.Button(io_row, text="导出工程", command=self._export_project).pack(side=tk.LEFT, fill=tk.X, expand=True)
         ttk.Button(io_row, text="导入工程", command=self._import_project).pack(side=tk.LEFT, padx=(6, 0), fill=tk.X, expand=True)
+
+        diag_row = ttk.Frame(tab)
+        diag_row.pack(fill=tk.X, pady=(4, 0))
+        ttk.Button(diag_row, text="导出诊断包（出问题时点这个）",
+                   command=self._export_diagnostics).pack(fill=tk.X)
 
         ttk.Separator(tab).pack(fill=tk.X, pady=8)
 
@@ -616,6 +625,138 @@ class App(_TkBase):
             messagebox.showerror("导出失败", str(exc))
             return
         self.status_var.set(f"工程已导出：{os.path.basename(path)}")
+
+    # ─────────────────────── 诊断包 ───────────────────────
+
+    def _docs_candidates(self):
+        """「文档」目录的候选路径：本机可能被重定向，逐个试。"""
+        cands = []
+        try:
+            from ctypes import windll, c_wchar_p, byref, Structure, c_ubyte, wintypes
+
+            class _GUID(Structure):
+                _fields_ = [("Data1", wintypes.DWORD), ("Data2", wintypes.WORD),
+                            ("Data3", wintypes.WORD), ("Data4", c_ubyte * 8)]
+
+            fid = _GUID(0xFDD39AD0, 0x238F, 0x46AF,
+                        (c_ubyte * 8)(0xAD, 0xB4, 0x6C, 0x85, 0x48, 0x03, 0x69, 0xC7))
+            out = c_wchar_p()
+            if windll.shell32.SHGetKnownFolderPath(byref(fid), 0, None, byref(out)) == 0 and out.value:
+                cands.append(out.value)
+                windll.ole32.CoTaskMemFree(out)
+        except Exception:
+            pass
+        cands.append(os.path.join(os.path.expanduser("~"), "Documents"))
+        for d in ("D:\\文档", "C:\\文档"):
+            cands.append(d)
+        seen, uniq = set(), []
+        for c in cands:
+            if c and c not in seen:
+                seen.add(c); uniq.append(c)
+        return uniq
+
+    def _find_mod_dirs(self):
+        """返回 (config.json 路径或 None, 最新日志路径或 None)。"""
+        cfg = log = None
+        for doc in self._docs_candidates():
+            c = os.path.join(doc, "My Games", "Terraria", "ModLoader",
+                             "TerrariaImageBuilder", "config.json")
+            if cfg is None and os.path.isfile(c):
+                cfg = c
+            logdir = os.path.join(doc, "My Games", "Terraria", "ModLoader", "Logs",
+                                  "TerrariaImageBuilder")
+            if log is None and os.path.isdir(logdir):
+                logs = [os.path.join(logdir, f) for f in os.listdir(logdir) if f.endswith(".log")]
+                if logs:
+                    log = max(logs, key=os.path.getmtime)
+        return cfg, log
+
+    def _export_diagnostics(self):
+        """把排查需要的一切打成一个 zip：环境、设置、端口状态、模组日志尾部。"""
+        import platform
+        import socket
+        import zipfile
+        import datetime
+
+        default_name = "TIB_diag_%s.zip" % datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = filedialog.asksaveasfilename(
+            title="保存诊断包", defaultextension=".zip", initialfile=default_name,
+            filetypes=[("Zip", "*.zip")])
+        if not path:
+            return
+
+        host = getattr(self.client, "host", "127.0.0.1")
+        port = getattr(self.client, "port", 8765)
+        listening = False
+        try:
+            s = socket.socket(); s.settimeout(0.8)
+            listening = (s.connect_ex((host, port)) == 0); s.close()
+        except Exception:
+            pass
+
+        lines = ["TerrariaImageBuilder 诊断包", "=" * 40, ""]
+        lines.append("时间: %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        lines.append("程序版本: %s" % APP_VERSION)
+        lines.append("打包运行(frozen): %s" % getattr(sys, "frozen", False))
+        lines.append("可执行文件: %s" % sys.executable)
+        lines.append("工作目录: %s" % os.getcwd())
+        lines.append("系统: %s %s" % (platform.system(), platform.release()))
+        try:
+            import numpy, PIL
+            lines.append("numpy: %s   Pillow: %s" % (numpy.__version__, PIL.__version__))
+        except Exception as exc:
+            lines.append("依赖版本读取失败: %s" % exc)
+        try:
+            import aiohttp
+            lines.append("aiohttp: %s" % aiohttp.__version__)
+        except Exception:
+            lines.append("aiohttp: 缺失（旧版发行包会因此连不上游戏）")
+        lines.append("")
+        lines.append("通信: %s:%s  端口%s在监听" % (host, port, "" if listening else "没有"))
+        lines.append("客户端状态: %s" % ("已连接" if self.client.is_connected() else "未连接"))
+        lines.append("")
+        lines.append("当前匹配设置: %s" % json.dumps(self._match_settings_dict(), ensure_ascii=False))
+        lines.append("已导入图片: %s" % (self.current_path or "(未导入)"))
+        res = getattr(self, "result", None)
+        if res is not None:
+            lines.append("蓝图: %s 方块 / %s 分块" % (res.total_blocks, res.total_chunks))
+        else:
+            lines.append("蓝图: 尚未生成")
+        cfg, log = self._find_mod_dirs()
+        lines.append("模组配置: %s" % (cfg or "(未找到)"))
+        lines.append("模组日志: %s" % (log or "(未找到)"))
+        lines.append("")
+        lines.append("状态栏最后一条: %s" % self.status_var.get())
+
+        try:
+            with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+                z.writestr("diagnostics.txt", "\n".join(lines))
+                if cfg:
+                    z.write(cfg, "mod_config.json")
+                if log:
+                    with open(log, "r", encoding="utf-8", errors="replace") as f:
+                        tail = f.readlines()[-200:]
+                    z.writestr("mod_log_tail.log", "".join(tail))
+                for extra in ("selftest.log", "startup_error.log"):
+                    p = os.path.join(os.path.dirname(sys.executable), extra)
+                    if os.path.isfile(p):
+                        z.write(p, extra)
+                # 附一份源码快照（打包运行时 __file__ 指向 _internal 内的脚本）
+                if os.path.isfile(__file__):
+                    z.write(__file__, "app_source_snapshot.py")
+        except Exception as exc:
+            messagebox.showerror("导出失败", "写压缩包失败：%s" % exc)
+            return
+
+        self.status_var.set("诊断包已导出：%s" % path)
+        messagebox.showinfo(
+            "诊断包已导出",
+            "%s\n\n里面含：环境信息、当前设置、端口状态、模组日志尾部、模组配置。\n"
+            "把这个文件发出去，对方就能定位问题。" % path)
+        try:
+            os.startfile(os.path.dirname(path))
+        except Exception:
+            pass
 
     def _import_project(self):
         path = filedialog.askopenfilename(
@@ -1695,9 +1836,82 @@ class App(_TkBase):
                     "4) config.json 里的 WebSocketPort 是否被改过（默认 8765）")
         messagebox.showwarning("连接失败", f"{head}\n\n{tips}")
 
+    # ─────────────────── 断点续传（只动桌面端，协议零改动） ───────────────────
+    #
+    # 思路：模组的 ChunkProgress 带的是「分块索引」，而分块索引对同一张图是稳定的。
+    # 所以只要把「哪些分块已经完成」记到本地，重连后只补发没完成的分块即可 ——
+    # 模组端完全不需要改，也不会重复建造已完成的区域（配合 SkipExistingBlocks 更保险）。
+
+    def _resume_path(self):
+        r"""续传状态文件路径。
+
+        优先 TIB_STATE_DIR（便于自定义与测试），否则放 %LOCALAPPDATA%\TerrariaImageBuilder；
+        两者都写不了时退到程序目录，并把原因记在 _resume_error 里（诊断包会带出去）。
+        """
+        cands = []
+        env_dir = os.environ.get("TIB_STATE_DIR")
+        if env_dir:
+            cands.append(env_dir)
+        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+        cands.append(os.path.join(base, "TerrariaImageBuilder"))
+        cands.append(os.path.join(os.path.dirname(sys.executable), "state"))
+
+        last_err = None
+        for d in cands:
+            try:
+                os.makedirs(d, exist_ok=True)
+                probe = os.path.join(d, ".write_test")
+                with open(probe, "w", encoding="utf-8") as f:
+                    f.write("1")
+                os.remove(probe)
+                self._resume_error = None
+                return os.path.join(d, "resume.json")
+            except Exception as exc:
+                last_err = "%s: %s" % (d, exc)
+        self._resume_error = last_err
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "resume.json")
+
+    @staticmethod
+    def _blueprint_signature(bp):
+        """蓝图指纹：换图或换参数后指纹变化，续传记录自动失效。"""
+        import hashlib
+
+        chunks = list(getattr(bp, "chunks", []) or [])
+        parts = [str(getattr(bp, "width", 0)), str(getattr(bp, "height", 0)), str(len(chunks))]
+        for ch in chunks:
+            parts.append("%d:%d" % (int(getattr(ch, "chunk_index", 0)),
+                                    len(getattr(ch, "blocks", []) or [])))
+        return hashlib.sha1("|".join(parts).encode()).hexdigest()[:16]
+
+    def _load_resume(self):
+        try:
+            with open(self._resume_path(), "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return None
+
+    def _save_resume(self, signature, done):
+        try:
+            ox, oy = getattr(self, "_origin", (0, 0))
+            with open(self._resume_path(), "w", encoding="utf-8") as f:
+                json.dump({"sig": signature, "origin": [ox, oy],
+                           "done": sorted(int(i) for i in done),
+                           "saved_at": int(__import__("time").time())}, f, ensure_ascii=False)
+        except Exception as exc:
+            # 不静默：续传失效要能在诊断包里看到原因
+            self._resume_error = "写续传记录失败：%s" % exc
+
+    def _clear_resume(self):
+        try:
+            os.remove(self._resume_path())
+        except Exception:
+            pass
+
     def _split_batches(self, blueprint):
         """按分块把蓝图切成多批，每批不超过 BATCH_MAX_BLOCKS 块。"""
-        chunks = list(getattr(blueprint, "chunks", []) or [])
+        return self._split_batches_from_chunks(list(getattr(blueprint, "chunks", []) or []))
+
+    def _split_batches_from_chunks(self, chunks):
         batches, cur, cur_blocks = [], [], 0
         for ch in chunks:
             n = len(getattr(ch, "blocks", []) or [])
@@ -1739,9 +1953,33 @@ class App(_TkBase):
                 self.status_var.set("已取消（规模确认未通过）")
                 return
 
-        batches = self._split_batches(self.result.blueprint)
+        bp = self.result.blueprint
+        sig = self._blueprint_signature(bp)
+        self._resume_sig = sig
+        self._done_chunks = set()
+
+        # 断点续传：同一张图 + 同一原点，且上次有未完成的分块 → 问用户要不要只补剩下的
+        rec = self._load_resume()
+        all_chunks = list(getattr(bp, "chunks", []) or [])
+        # 注意：要比对「本次输入框里的原点」，不是 self._origin（那是上一次的值，等于没检查）
+        same_origin = bool(rec) and list(rec.get("origin") or []) == [int(ox), int(oy)]
+        if rec and rec.get("sig") == sig and rec.get("done") and same_origin:
+            done = {int(i) for i in rec["done"]}
+            remain = [ch for ch in all_chunks if int(getattr(ch, "chunk_index", 0)) not in done]
+            if remain and len(remain) < len(all_chunks):
+                if messagebox.askyesno(
+                        "发现未完成的建造",
+                        f"上次这张图建到 {len(all_chunks) - len(remain)}/{len(all_chunks)} 分块。\n\n"
+                        f"要继续建造剩下的 {len(remain)} 个分块吗？\n"
+                        f"（选「否」将从头重建一遍）"):
+                    self._done_chunks = done
+                    all_chunks = remain
+                    self.status_var.set(f"继续建造：已完成 {len(done)} 分块，本次补 {len(remain)} 分块")
+
+        batches = self._split_batches_from_chunks(all_chunks)
         if not batches:
-            messagebox.showinfo("提示", "蓝图里没有可建造的方块")
+            messagebox.showinfo("提示", "没有需要补建的分块了（上次可能已完成）")
+            self._clear_resume()
             return
 
         total = sum(len(getattr(ch, "blocks", []) or []) for b in batches for ch in b)
@@ -1865,11 +2103,38 @@ class App(_TkBase):
             self.completed_blocks = data.get("CompletedBlocks", self.completed_blocks)
             self.progress.config(value=self.completed_blocks)
             self.lbl_progress.config(text=f"{self.completed_blocks} / {self.total_blocks}")
+            # 记下已完成的分块索引，断线后可只补剩下的（续传记录随进度落盘）
+            idx = data.get("ChunkIndex")
+            if idx is not None:
+                done = getattr(self, "_done_chunks", None)
+                if done is None:
+                    done = self._done_chunks = set()
+                try:
+                    done.add(int(idx))
+                except (TypeError, ValueError):
+                    pass
+                sig = getattr(self, "_resume_sig", None)
+                if sig:
+                    self._save_resume(sig, done)
             self.status_var.set(f"分块 {data.get('ChunkIndex')} 完成，累计 {self.completed_blocks} 方块")
         elif mtype == "AllCompleted":
             self.completed_blocks = data.get("TotalCompletedBlocks", self.completed_blocks)
             self.progress.config(value=self.completed_blocks)
             self.lbl_progress.config(text=f"{self.completed_blocks} / {self.total_blocks}")
+
+            # 该批已完成：把它包含的所有分块都记为完成（不依赖 ChunkProgress 是否逐块上报）
+            try:
+                cur_batch = self._batches[self._batch_index] if self._batches else []
+                done = getattr(self, "_done_chunks", None)
+                if done is None:
+                    done = self._done_chunks = set()
+                for ch in cur_batch:
+                    done.add(int(getattr(ch, "chunk_index", 0)))
+                sig = getattr(self, "_resume_sig", None)
+                if sig:
+                    self._save_resume(sig, done)
+            except Exception:
+                pass
 
             if self._batches and self._batch_index + 1 < len(self._batches):
                 self._batch_index += 1
@@ -1880,6 +2145,9 @@ class App(_TkBase):
                 self.after(400, self._send_next_batch)
             else:
                 self._batch_index = len(self._batches) if self._batches else 0
+                # 全部批次完成 → 续传记录作废（下次是全新任务）
+                self._clear_resume()
+                self._done_chunks = set()
                 self.status_var.set(
                     f"全部完成：{self.completed_blocks} 方块"
                     + (f"（共 {len(self._batches)} 批）" if self._batches else "")

@@ -20,7 +20,9 @@ namespace TerrariaImageBuilder
 
         // 安全
         public bool SkipExistingBlocks { get; set; } = false;
-        public int MaxTotalBlocks { get; set; } = 10000;
+        // 与单任务硬上限（200000）保持一致：若指令里没带 MaxTotalBlocks，
+        // 这里若还是 1 万，大图会建到 8% 就静默停下，且不报错。
+        public int MaxTotalBlocks { get; set; } = 200000;
 
         // 执行
         // 放置速度档位：1=稳（4块/帧） 2=中（12块/帧） 3=快（24块/帧） 4=极限（32块/帧）

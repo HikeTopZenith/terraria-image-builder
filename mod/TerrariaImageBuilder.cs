@@ -79,6 +79,12 @@ namespace TerrariaImageBuilder
 
             CommManager.Initialize();
 
+            // 协议自检：与外部端的校验和口径是否仍然一致（漂移的话所有指令都会被拒）
+            if (ChecksumValidator.SelfCheck(out string checksumDetail))
+                FileLogger.Info(checksumDetail);
+            else
+                FileLogger.Error(checksumDetail);
+
             WriteStartupLog();
         }
 

@@ -23,7 +23,8 @@ namespace TerrariaImageBuilder.Safety
         /// </summary>
         private const long AbsurdCoordinate = 1_000_000L;
 
-        public int MaxTotalBlocks { get; set; } = 10000;
+        // 默认值与单任务硬上限对齐；指令里的 MaxTotalBlocks 会覆盖它（0 或负数 = 不限）
+        public int MaxTotalBlocks { get; set; } = 200000;
         public bool SkipExistingBlocks { get; set; } = false;
 
         private int _blocksPlacedThisSession;

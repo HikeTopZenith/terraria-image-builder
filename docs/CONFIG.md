@@ -1,4 +1,4 @@
-# TerrariaImageBuilder 模组配置说明（v1.2.0）
+# TerrariaImageBuilder 模组配置说明（v1.2.2）
 
 > 配置只走 json，模组不提供游戏内设置面板。
 > 配置文件路径（Windows）：
@@ -7,9 +7,17 @@
 > `D:\文档\My Games\Terraria\ModLoader\TerrariaImageBuilder\config.json`）
 
 ## 通信配置
-- CommunicationMode: "WebSocket"（默认）或 "JsonPolling"
+- CommunicationMode: `0` = WebSocket（默认，**推荐**），`1` = JsonPolling
 - WebSocketPort: 本地 WebSocket 监听端口，默认 8765（仅 127.0.0.1，不对外网开放）
 - JsonPollingIntervalMs: JSON 文件轮询间隔，默认 300 毫秒
+
+> ⚠️ **JsonPolling 目前只有模组端实现，本项目的桌面端（外端建造台）只支持 WebSocket。**
+> 如果你把 CommunicationMode 改成 JsonPolling，桌面端会一直连不上（它不会去读写那两个 JSON 文件）。
+> 该模式留给：自己写脚本对接、或命令行工具（参见 `tools/`）。
+>
+> 判定当前走的是哪条通道：看模组日志开头那行
+> 「启动：通信模式 = WebSocket 服务端，监听 127.0.0.1:8765」——
+> 若是 WebSocket 以外的内容，就说明配置被改过。
 - JsonCommandFileName / JsonStatusFileName: 轮询模式下的指令 / 状态文件名
 
 启动时日志会打印实际生效的通信模式、端口（或轮询间隔与目录），便于排查。

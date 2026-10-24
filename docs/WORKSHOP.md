@@ -243,6 +243,12 @@ Hotkeys: `O` set origin · `P` start/pause · `U` undo all (rebindable).
 
     导入一张图 → 自动匹配原版方块 → 分块发给游戏 → 站在原地看它自己长出来。
 
+
+    【下载桌面端（必须）】
+    创意工坊只能分发模组本身，把图片算成方块的桌面程序在这里：
+    https://github.com/HikeTopZenith/terraria-image-builder/releases/latest
+    解压即用，不需要安装 Python。
+
     【核心能力】
     · CIEDE2000 色差匹配：按人眼感知算色差，不是简单 RGB 比色；传统 LAB 算法可切换
     · 贴图级色库：方块固有色直接从原版贴图采样（剔除阴影与烘焙光照），不是手填估算值

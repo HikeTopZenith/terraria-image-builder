@@ -81,6 +81,16 @@ namespace TerrariaImageBuilder.Communication
             _disconnectedHandled = false;
             _logger.Info(Bilingual.Pair("通信通道已连接", "communication channel connected"));
 
+            // 先报身份：外部端据此显示模组版本，并在协议版本不一致时提示更新
+            SendObject(new ServerHelloStatus
+            {
+                MsgType = "ServerHello",
+                ModVersion = TerrariaImageBuilder.Instance?.Version?.ToString() ?? "unknown",
+                ProtocolVersion = ProtocolVersion,
+                DesktopDownloadUrl = DesktopDownloadUrl,
+                Timestamp = NowMs()
+            });
+
             if (_taskAbortedByDisconnect)
             {
                 _taskAbortedByDisconnect = false;
@@ -404,6 +414,16 @@ namespace TerrariaImageBuilder.Communication
                 Timestamp = NowMs()
             });
         }
+
+        /// <summary>
+        /// 通信协议版本。外部端与模组各认一个数字，不一致时外部端会提示更新桌面端。
+        /// 只有当「消息字段语义」真的变了才递增；单纯加可选字段不算。
+        /// </summary>
+        public const int ProtocolVersion = 1;
+
+        /// <summary>桌面端下载地址。改这里要同步 mod.hjson 的 Website。</summary>
+        public const string DesktopDownloadUrl =
+            "https://github.com/HikeTopZenith/terraria-image-builder/releases/latest";
 
         private void SendObject(object message)
         {

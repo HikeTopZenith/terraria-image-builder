@@ -1,7 +1,7 @@
 {
 	Name: "TerrariaImageBuilder"
 	Author: "DSH"
-	Version: "1.2.0"
+	Version: "1.2.1"
 	Description: "本模组仅负责把图片转换成方块建造（图像 → 方块像素画），推荐搭配 HEROsMod（全亮 / 建造工具）与 Better Zoom（镜头缩放）。 | This mod only converts images into block builds (image -> block pixel art). Recommended companions: HEROsMod (fullbright / build tools) and Better Zoom (camera zoom)."
 	Website: "https://github.com/HikeTopZenith/terraria-image-builder/releases/latest"
 	MinimumApiVersion: "2026.4"

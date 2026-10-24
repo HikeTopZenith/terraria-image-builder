@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Terraria;
 using Terraria.ModLoader;
 using Microsoft.Xna.Framework;
+using TerrariaImageBuilder.Communication;
 
 namespace TerrariaImageBuilder
 {
@@ -24,6 +25,8 @@ namespace TerrariaImageBuilder
         private long _lastDriveTicks;
         private uint _lastFrameId = uint.MaxValue;
         private bool _wasInWorld;
+        // 每个世界只提示一次：告诉玩家桌面端去哪下（创意工坊只能分发模组本身）
+        private bool _downloadHintShown;
 
         public override void Load()
         {
@@ -70,6 +73,27 @@ namespace TerrariaImageBuilder
             }
 
             _wasInWorld = true;
+
+            if (!_downloadHintShown)
+            {
+                // 只提示一次，且不刷屏：玩家第一次进世界时给一句可点击阅读的指引
+                _downloadHintShown = true;
+                try
+                {
+                    Bilingual.EnqueueToPlayer(
+                        "TerrariaImageBuilder 已就绪。本模组只负责放方块，把图片算成蓝图的桌面程序在：" +
+                        CommunicationManager.DesktopDownloadUrl +
+                        "（创意工坊只能分发模组本身，桌面端无法放进工坊）。",
+                        "TerrariaImageBuilder ready. This mod only places blocks; the desktop app that turns images into " +
+                        "blueprints is at " + CommunicationManager.DesktopDownloadUrl +
+                        " (the Workshop can only ship the mod itself, not the desktop app).",
+                        new Microsoft.Xna.Framework.Color(150, 210, 255));
+                }
+                catch
+                {
+                    // 提示失败不影响任何建造逻辑
+                }
+            }
 
             long now = Stopwatch.GetTimestamp();
             uint frameId = Main.GameUpdateCount;

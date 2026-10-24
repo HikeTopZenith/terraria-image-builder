@@ -112,6 +112,24 @@ namespace TerrariaImageBuilder.Communication
         public int SurfaceY { get; set; }
     }
 
+    /// <summary>
+    /// ServerHello：外部端连上时，模组主动报一次身份。
+    ///
+    /// 目的：让「模组版本」和「协议版本」对使用者可见。两边是分开发布的
+    /// （模组走创意工坊、桌面端走 Releases），版本对不上时必须能一眼看出来，
+    /// 否则使用者只会看到「连上了但建造没反应」这种哑谜。
+    /// 纯新增字段，不改动既有消息，老外部端不认识这个 MsgType 时会被忽略。
+    /// </summary>
+    public class ServerHelloStatus : OutgoingStatusBase
+    {
+        /// <summary>模组版本（与 mod.hjson 的 Version 一致）。</summary>
+        public string ModVersion { get; set; }
+        /// <summary>通信协议版本：外部端与模组都认这个数字，不一致就提示更新。</summary>
+        public int ProtocolVersion { get; set; }
+        /// <summary>桌面端下载地址（模组元数据里那一份）。</summary>
+        public string DesktopDownloadUrl { get; set; }
+    }
+
     /// <summary>④ ExecutionError：执行异常</summary>
     public class ExecutionErrorStatus : OutgoingStatusBase
     {

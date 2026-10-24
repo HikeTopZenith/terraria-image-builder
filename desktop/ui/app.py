@@ -83,6 +83,11 @@ DELTA_LABELS = [
     ("lab", "LAB（旧）"),
 ]
 DELTA_DEFAULT = "ciede2000"
+
+# 本桌面端认的通信协议版本，必须与模组 CommunicationManager.ProtocolVersion 一致。
+# 两边是分开发布的（模组走工坊，桌面端走 Releases），版本对不上要给用户明确提示。
+CLIENT_PROTOCOL_VERSION = 1
+
 DELTA_LABEL_TO_KEY = {label: key for key, label in DELTA_LABELS}
 DELTA_KEY_TO_LABEL = {key: label for key, label in DELTA_LABELS}
 
@@ -1818,6 +1823,8 @@ class App(_TkBase):
                     self.btn_conn.config(text="连接游戏")
                 elif kind == "log":
                     self.status_var.set(str(payload))
+                elif kind == "log_ignore":
+                    pass
                 elif kind == "connect_error":
                     # 连接层主动上报的失败原因，直接显示，别让用户对着"连接中…"猜
                     self.status_var.set(f"连接失败：{payload}")
@@ -1828,6 +1835,26 @@ class App(_TkBase):
 
     def _handle_status(self, data: dict):
         mtype = data.get("MsgType")
+
+        if mtype == "ServerHello":
+            # 模组连上就自报身份：版本对不上必须让用户看见，否则只会觉得"连上了但没反应"
+            mod_ver = str(data.get("ModVersion") or "?")
+            proto = data.get("ProtocolVersion")
+            url = data.get("DesktopDownloadUrl") or ""
+            self.conn_label.config(text=f"已连接 · 模组 v{mod_ver}", foreground="#070")
+            if proto != CLIENT_PROTOCOL_VERSION:
+                self.status_var.set(
+                    f"版本不匹配：模组协议 v{proto}，本程序 v{CLIENT_PROTOCOL_VERSION}。"
+                    f"请把桌面端更新到同一版本：{url}" if url else
+                    f"版本不匹配：模组协议 v{proto}，本程序 v{CLIENT_PROTOCOL_VERSION}，请更新桌面端")
+                messagebox.showwarning(
+                    "版本不匹配",
+                    f"游戏里的模组协议版本是 v{proto}，而当前桌面端是 v{CLIENT_PROTOCOL_VERSION}。\n\n"
+                    + ("请更新桌面端（与模组同版本）：\n" + url if url else "请把两边更新到同一版本。"))
+            else:
+                self.status_var.set(f"已连接游戏 · 模组 v{mod_ver}（协议 v{proto}）")
+            return
+
         if mtype == "InstructionReceived":
             self.total_blocks = data.get("TotalBlocks", self.total_blocks)
             self.completed_blocks = 0

@@ -35,6 +35,7 @@ class BuildClient:
         on_connected: Optional[Callable[[], None]] = None,
         on_disconnected: Optional[Callable[[], None]] = None,
         on_log: Optional[Callable[[str], None]] = None,
+        on_error: Optional[Callable[[str], None]] = None,
     ):
         self.host = host
         self.port = port
@@ -42,6 +43,7 @@ class BuildClient:
         self.on_connected = on_connected
         self.on_disconnected = on_disconnected
         self.on_log = on_log
+        self.on_error = on_error
 
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._thread: Optional[threading.Thread] = None
@@ -53,11 +55,21 @@ class BuildClient:
     # ---------------- 生命周期 ----------------
 
     def start(self) -> None:
-        """启动后台事件循环线程（不建立连接）。"""
+        """启动后台事件循环线程（不建立连接）。
+
+        必须等到事件循环真的在跑再返回：否则紧接着的 connect() 会被 _submit 丢掉，
+        表现为点「连接游戏」后永远停在"连接中…"（真实踩过的坑）。
+        """
         if self._thread and self._thread.is_alive():
             return
         self._thread = threading.Thread(target=self._run_loop, name="BuildClientLoop", daemon=True)
         self._thread.start()
+        # 必须等到事件循环真的在跑再返回：否则紧接的 connect() 会被 _submit 丢掉，
+        # 表现为点「连接游戏」后永远停在"连接中…"（真实踩过的坑）
+        for _ in range(200):
+            if self._loop is not None and self._loop.is_running():
+                return
+            threading.Event().wait(0.01)
 
     def _run_loop(self) -> None:
         self._loop = asyncio.new_event_loop()
@@ -91,22 +103,33 @@ class BuildClient:
 
     async def _connect(self) -> None:
         if aiohttp is None:
-            self._log("缺少 aiohttp，无法建立 WebSocket 连接")
+            self._log("缺少 aiohttp，无法建立 WebSocket 连接（打包发行版时必须把 aiohttp 一起打进去）")
+            if self.on_error:
+                self.on_error("缺少 aiohttp 库，无法连接游戏")
             return
         if self._connected:
             return
         url = f"ws://{self.host}:{self.port}/"
         try:
-            self._session = aiohttp.ClientSession()
-            self._ws = await self._session.ws_connect(url, heartbeat=30, max_msg_size=64 * 1024 * 1024)
+            # 必须带超时：否则连不上时会永远停在"连接中…"，用户看不到任何原因
+            self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8))
+            self._ws = await self._session.ws_connect(url, heartbeat=30,
+                                                     max_msg_size=64 * 1024 * 1024)
             self._connected = True
             self._log(f"已连接 {url}")
             if self.on_connected:
                 self.on_connected()
             asyncio.create_task(self._recv_loop())
+        except asyncio.TimeoutError:
+            self._log(f"连接超时：{url} 8 秒内无响应")
+            self._connected = False
+            if self.on_error:
+                self.on_error(f"连接超时：{self.host}:{self.port} 无响应")
         except Exception as exc:
             self._log(f"连接失败：{exc}")
             self._connected = False
+            if self.on_error:
+                self.on_error(str(exc))
             if self._session is not None:
                 try:
                     await self._session.close()
@@ -160,10 +183,15 @@ class BuildClient:
     # ---------------- 内部 ----------------
 
     def _submit(self, coro) -> None:
-        if self._loop is None or not self._loop.is_running():
-            self._log("事件循环未启动，请先调用 start()")
-            return
-        asyncio.run_coroutine_threadsafe(coro, self._loop)
+        # 循环可能刚好还在启动：等一小会儿再判定失败，避免把用户的点击吞掉
+        for _ in range(200):
+            if self._loop is not None and self._loop.is_running():
+                asyncio.run_coroutine_threadsafe(coro, self._loop)
+                return
+            threading.Event().wait(0.01)
+        self._log("事件循环未启动，请先调用 start()")
+        if self.on_error:
+            self.on_error("内部事件循环未启动，连接请求被丢弃")
 
     def _log(self, text: str) -> None:
         if self.on_log:

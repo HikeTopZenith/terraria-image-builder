@@ -229,6 +229,7 @@ class App(_TkBase):
             on_connected=lambda: self.events.put(("connected", None)),
             on_disconnected=lambda: self.events.put(("disconnected", None)),
             on_log=lambda t: self.events.put(("log", t)),
+            on_error=lambda t: self.events.put(("connect_error", t)),
         )
         self.client.start()
 
@@ -1654,6 +1655,40 @@ class App(_TkBase):
             return
         self.btn_conn.config(text="连接中…")
         self.client.connect()
+        # 看门狗：连不上时必须给出可执行的原因，不能一直停在"连接中…"
+        # （曾经的坑：发行版 exe 漏打包 aiohttp，客户端直接静默失败，用户只看到"连接中…"）
+        self.after(9000, self._connect_watchdog)
+
+    def _connect_watchdog(self):
+        if self.client.is_connected():
+            self.btn_conn.config(text="断开连接")
+            return
+        self.btn_conn.config(text="连接游戏")
+        host, port = self.client.host, self.client.port
+        listening = False
+        try:
+            import socket
+            s = socket.socket()
+            s.settimeout(0.8)
+            listening = (s.connect_ex((host, port)) == 0)
+            s.close()
+        except Exception:
+            listening = False
+
+        if listening:
+            head = f"{host}:{port} 有程序在监听，但它没有完成 WebSocket 握手"
+            tips = ("游戏端的模组可能还没进入世界，或端口被别的软件占用。\n"
+                    "请确认：1) 游戏里已启用 TerrariaImageBuilder 并已进入世界；"
+                    "2) 关闭占用 8765 端口的其他程序。")
+        else:
+            head = f"{host}:{port} 没有任何程序在监听"
+            tips = ("说明游戏端的服务没起来。按顺序排查：\n"
+                    "1) 游戏里是否启用了 TerrariaImageBuilder 模组（模组管理里勾选并重载）\n"
+                    "2) 是否已经进入世界（不能停在主菜单）\n"
+                    "3) 看模组日志有没有『WebSocket 服务端已启动』这一行：\n"
+                    "   <文档>\\My Games\\Terraria\\ModLoader\\Logs\\TerrariaImageBuilder\\\n"
+                    "4) config.json 里的 WebSocketPort 是否被改过（默认 8765）")
+        messagebox.showwarning("连接失败", f"{head}\n\n{tips}")
 
     def _split_batches(self, blueprint):
         """按分块把蓝图切成多批，每批不超过 BATCH_MAX_BLOCKS 块。"""
@@ -1783,6 +1818,10 @@ class App(_TkBase):
                     self.btn_conn.config(text="连接游戏")
                 elif kind == "log":
                     self.status_var.set(str(payload))
+                elif kind == "connect_error":
+                    # 连接层主动上报的失败原因，直接显示，别让用户对着"连接中…"猜
+                    self.status_var.set(f"连接失败：{payload}")
+                    self.conn_label.config(text="未连接", foreground="#b00")
         except queue.Empty:
             pass
         self.after(60, self._drain_events)

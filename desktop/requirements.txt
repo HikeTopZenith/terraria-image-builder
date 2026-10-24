@@ -2,3 +2,4 @@
 # 拖拽支持 tkinterdnd2 已随 vendor/ 自带，无需安装
 numpy>=1.24
 Pillow>=9.5
+aiohttp>=3.9        # WebSocket 客户端；缺它就只能"连接中…"（打包时必须一起打进去）

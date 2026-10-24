@@ -286,9 +286,11 @@ Steam 客户端登录态 + 创意工坊法律协议同意 + 游戏内来操作�
 
 ---
 
-## 八、给朋友的现成压缩包（已打好并实测）
+## 八、发行压缩包（已打好并实测）
 
-产物：`D:\deepseek\output\release\TerrariaImageBuilder-v1.2.0-朋友版.zip`（44 MB）
+> 给谁都用这一个包：自己留着、发给朋友、传网盘、挂 Release 附件，什么都不用改。
+
+产物：`D:\deepseek\output\release\TerrariaImageBuilder-v1.2.0.zip`（45 MB）
 
 内含三样：
 

@@ -16,7 +16,7 @@
 | 内容 | 位置 |
 |---|---|
 | 模组（.tmod） | 创意工坊订阅，或本项目 **Releases** 里的 `.tmod` |
-| 桌面程序（免安装 exe） | 本项目 **Releases** 里的 `TerrariaImageBuilder-v*-朋友版.zip` |
+| 桌面程序（免安装 exe） | 本项目 **Releases** 里的 `TerrariaImageBuilder-v*.zip` |
 | 源码 | 本仓库 |
 
 需要 **tModLoader 1.4.4+**（本模组 `MinimumApiVersion: 2026.4`）。

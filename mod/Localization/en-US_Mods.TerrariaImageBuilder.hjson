@@ -1,0 +1,8 @@
+DisplayName: Terraria Image Builder
+Description: This mod only converts images into block builds (image -> block pixel art). It does not provide lighting, flight, spawning or area clearing. Recommended companions: HEROsMod (fullbright / build tools) and Better Zoom (camera zoom).
+
+Keybinds: {
+	SetOrigin.DisplayName: Set Origin (place a dirt block at your feet)
+	StartPause.DisplayName: Start / Pause build
+	UndoAll.DisplayName: Undo all placed blocks
+}

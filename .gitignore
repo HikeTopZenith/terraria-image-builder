@@ -1,0 +1,31 @@
+# ---- 二进制与构建产物 ----
+*.tmod
+bin/
+obj/
+*.dll
+*.pdb
+mod.json
+
+# ---- 从游戏里解出的贴图（版权素材，绝不入库；运行时也不需要）----
+desktop/assets/tiles/
+assets/tiles/
+*.xnb
+
+# ---- 桌面端产物 ----
+*.exe
+_internal/
+release/
+*.zip
+
+# ---- Python ----
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# ---- 编辑器/系统 ----
+.vs/
+.idea/
+Thumbs.db
+desktop.ini
+startup_error.log

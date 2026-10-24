@@ -1,0 +1,8 @@
+DisplayName: 泰拉瑞亚图像建造
+Description: 本模组仅负责把图片转换成方块建造（图像 → 方块像素画），不提供光照 / 飞行 / 刷怪 / 区域清除。推荐搭配 HEROsMod（全亮 / 建造工具）与 Better Zoom（镜头缩放）。
+
+Keybinds: {
+	SetOrigin.DisplayName: 标记原点（脚下放泥土）
+	StartPause.DisplayName: 开始 / 暂停建造
+	UndoAll.DisplayName: 一键撤销全部
+}

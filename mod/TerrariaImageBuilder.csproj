@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>TerrariaImageBuilder</RootNamespace>
+    <AssemblyName>TerrariaImageBuilder</AssemblyName>
+    <BuildMod>true</BuildMod>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!-- CS1701: 引用 tModLoader/Terraria 程序集版本与运行时不严格一致，属于官方构建环境固有提示 -->
+    <!-- CS0108 / CS0067 已在代码层修复，此处加 NoWarn 作为跨版本编译兜底 -->
+    <NoWarn>$(NoWarn);CS1701;CS0108;CS0067</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="**/*.hjson" />
+    <AdditionalFiles Include="**/*.txt" />
+    <AdditionalFiles Include="**/*.png" />
+    <AdditionalFiles Include="**/*.fx" />
+    <AdditionalFiles Remove="bin/**" />
+    <AdditionalFiles Remove="obj/**" />
+  </ItemGroup>
+
+  <Import Project="D:\Steam\steamapps\common\tModLoader\tMLMod.targets" />
+
+</Project>

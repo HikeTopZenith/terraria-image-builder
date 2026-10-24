@@ -1,0 +1,4 @@
+# 外端建造台依赖（Python 3.8+）
+# 拖拽支持 tkinterdnd2 已随 vendor/ 自带，无需安装
+numpy>=1.24
+Pillow>=9.5

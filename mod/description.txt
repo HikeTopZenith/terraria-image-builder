@@ -1,43 +1,52 @@
-[b]把你的图片，变成泰拉瑞亚里的方块像素画。[/b]
+[b]把你喜欢的任何一张图，变成泰拉瑞亚世界里的一面墙。[/b]
 
-导入一张图 → 自动匹配原版方块 → 分块发给游戏 → 站在原地看它自己长出来。
+角色立绘、海报、LOGO、表情包、自己的照片 —— 导入、生成预览、点开始，然后站在原地看它自己一格一格长出来。
 
-[b]【下载桌面端（必须）】[/b]
-创意工坊只能分发模组本身。把图片算成方块、生成蓝图的桌面程序在这里（解压即用，无需安装 Python）：
-https://github.com/HikeTopZenith/terraria-image-builder/releases/latest
+[b]【下载桌面端（必读）】[/b]
+创意工坊[b]只能分发模组本身[/b]。把图片算成方块蓝图的桌面程序在这里（解压即用，不用装 Python）：
+[b]https://github.com/HikeTopZenith/terraria-image-builder/releases/latest[/b]
+少了它，模组会一直显示「未连接」。
 
-[b]【核心能力】[/b]
-· CIEDE2000 色差匹配：按人眼感知算色差，不是简单 RGB 比色；传统 LAB 算法可切换
-· 贴图级色库：42 种原版方块的固有色直接从游戏贴图采样（剔除阴影与烘焙光照），不是手填的估算值
-· 三项可选微调，默认全关：优先保色相（压掉「红变棕、蓝变紫」）/ 纯色方块优先 / Floyd–Steinberg 抖动
-· 自定义色卡：顽固偏色区可手动指定「这个颜色 → 这个方块」，最多 50 条，随工程保存
-· 离线预览：不连游戏也能看到方块化结果，与蓝图用同一套匹配逻辑，所见即所得
+[b]【30 秒上手】[/b]
+1. 启用本模组，进入世界
+2. 运行外端建造台 → 点「连接游戏」（连上会显示「已连接 · 模组 vX.Y.Z」）
+3. 选择图片 → 点「生成预览」看效果 → 满意就点「开始建造」
+4. 建造中：O 标记原点 · P 开始/暂停 · U 撤销全部（都能在 config.json 改键）
+
+[b]【为什么它画得比手挑方块准】[/b]
+· [b]CIEDE2000 色差[/b]：按人眼感知比较颜色，不是简单比 RGB 数值。红配砖、蓝配石的判断更接近你眼睛看到的
+· [b]贴图级色库[/b]：42 种方块的固有色是从游戏原始贴图里采出来的（剔除贴图自带的阴影与烘焙光照），不是网上抄的估算值
+· 换句话说：预览里是什么样，游戏里就是什么样，不会「预览好看、进去发暗」
+
+[b]【可选微调，全部默认关闭】[/b]
+· [b]优先保色相[/b]：压掉「红变棕、蓝变紫」这类跑偏，画人像和角色时开
+· [b]纯色方块优先[/b]：大面积背景优先用低纹理方块，画面更干净
+· [b]Floyd–Steinberg 抖动[/b]：渐变区域消除色块断层
+· [b]自定义色卡[/b]：某块颜色怎么调都不对，就手动指定「这个颜色 → 这个方块」，最多 50 条
+
+[b]【其它实用功能】[/b]
 · 预处理：拖拽裁剪、旋转、镜像、亮度对比度、自动缩放到目标方块数
-· 工程包 .tibp：蓝图与全部参数一起保存，旧工程完全兼容
-· 断点续传：大图建到一半断线，重连后只补未完成的分块
-· 安全：单次 20 万方块硬上限、坐标与方块 ID 全量校验、断线自动清队列、一键撤销全部
-
-[b]【游戏内操作】[/b]
-O 标记原点 · P 开始/暂停 · U 撤销全部（三个键都可以在 config.json 自定义）
-4 档放置速度 + 自适应降速 + 自动避让玩家位置
+· 工程包 .tibp：蓝图和全部参数一起存，旧工程完全兼容
+· [b]断点续传[/b]：大图建到一半断线，重连后只补没完成的部分，不用从头再来
+· 安全：单次 20 万方块硬上限、坐标与方块 ID 全量校验、断线自动清队列、一键撤销
 
 [b]【推荐搭配】[/b]
-本模组[b]只负责把图片变成方块[/b]。灯光与镜头请交给专业工具：
-· HEROsMod（全亮模式 / 建造工具）
-· Better Zoom（镜头缩放，远观像素画必备）
+本模组[b]只负责放方块[/b]。灯光和镜头交给专业工具，效果会好很多：
+· [b]HEROsMod[/b]（全亮模式）—— 不开的话方块内部是黑的，看不清自己建了什么
+· [b]Better Zoom[/b]（镜头缩放）—— 拉远才能看全整幅像素画
 
-[b]【使用流程】[/b]
-1. tModLoader 中启用本模组，进入世界
-2. 运行外端建造台 → 点「连接游戏」（连上会显示「已连接 · 模组 vX.Y.Z」）
-3. 导入图片 → 调参数 → 生成预览 → 开始建造
-4. 想看清就开 HEROsMod 全亮，想远观就开 Better Zoom
+[b]【常见问题】[/b]
+[b]Q：画面发暗、发灰？[/b] 正常。方块颜色取自原版贴图，比屏幕上的照片暗是物理事实，开 HEROsMod 全亮后观感会好很多。
+[b]Q：白色部分不够白？[/b] 原版没有「亮中性且实心」的方块（雪和微光砖偏冷，珍珠沙会塌方），这是色域限制，不是匹配出错。
+[b]Q：多大的图合适？[/b] 推荐 2 万方块左右（141×141，两屏内能看全）。上限 20 万。
+[b]Q：能只建一部分吗？[/b] 可以，先用预处理裁剪出你要的区域。
+[b]Q：能和朋友一起看吗？[/b] 模组是客户端兼服务端，多人服务器里也能用（建造者需要有外端程序）。
 
 [b]【English】[/b]
-Turns your images into Terraria block pixel art. A companion desktop app (Windows, no Python needed) computes the blueprint; this mod only places the blocks.
-· CIEDE2000 perceptual matching (legacy LAB selectable) · palette sampled from real vanilla tile textures
-· Optional: hue-preserving / pure-block priority / Floyd-Steinberg dithering — all off by default
-· Custom color-card rules (up to 50) · offline preview sharing the same matching path · .tibp project files
+Turn any image into Terraria block pixel art. A companion Windows app (no Python needed) computes the blueprint; this mod only places the blocks.
+· CIEDE2000 perceptual color matching · palette sampled from real vanilla tile textures
+· Optional hue-preserving / pure-block priority / Floyd-Steinberg dithering (all off by default) · custom color-card rules
+· Offline preview sharing the same matching path · .tibp project files · resume after disconnect
 · Safety: 200k block hard cap, full coordinate/ID validation, queue cleared on disconnect, one-key undo
-Hotkeys: O set origin, P start/pause, U undo all (rebindable in config.json).
-Recommended companions: HEROsMod (fullbright / build tools) and Better Zoom (camera zoom).
-Desktop app download: https://github.com/HikeTopZenith/terraria-image-builder/releases/latest
+Hotkeys: O set origin, P start/pause, U undo all (rebindable). Recommended: HEROsMod (fullbright) and Better Zoom.
+Desktop app: https://github.com/HikeTopZenith/terraria-image-builder/releases/latest

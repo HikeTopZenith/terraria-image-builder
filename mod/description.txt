@@ -3,9 +3,13 @@
 角色立绘、海报、LOGO、表情包、自己的照片 —— 导入、生成预览、点开始，然后站在原地看它自己一格一格长出来。
 
 [b]【下载桌面端（必读）】[/b]
-创意工坊[b]只能分发模组本身[/b]。把图片算成方块蓝图的桌面程序在这里（解压即用，不用装 Python）：
-[b]https://github.com/HikeTopZenith/terraria-image-builder/releases/latest[/b]
-少了它，模组会一直显示「未连接」。
+创意工坊[b]只能分发模组本身[/b]，不会带上桌面程序。把图片算成方块蓝图的桌面程序在这里（解压即用，不用装 Python）：
+[b]国内网盘（推荐，速度快）[/b]
+· 蓝奏云：[url]https://wwaxs.lanzoub.com/iakxM4dcmftg[/url]  密码：hmcz
+· 123 云盘：[url]https://4007090851.share.123pan.cn/123pan/RwIowh-30aX?pwd=8BXg[/url]  提取码：8BXg
+[b]GitHub（海外 / 备用，含 .tmod 完整包）[/b]
+[url]https://github.com/HikeTopZenith/terraria-image-builder/releases/latest[/url]
+少了桌面端，模组会一直显示「未连接」。
 
 [b]【30 秒上手】[/b]
 1. 启用本模组，进入世界

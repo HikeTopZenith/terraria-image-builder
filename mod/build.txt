@@ -1,0 +1,8 @@
+# 发布元数据（tModLoader v2024.8.3.0 的 Publish 流程读 build.txt，
+# 而 dotnet/tML 的构建流程读 mod.hjson —— 两个文件必须保持一致，改一处记得改另一处）
+author = DSH
+version = 1.2.2
+displayName = Terraria Image Builder
+homepage = https://github.com/HikeTopZenith/terraria-image-builder/releases/latest
+description = 本模组仅负责把图片转换成方块建造（图像 → 方块像素画），推荐搭配 HEROsMod 与 Better Zoom。桌面端程序见 homepage。
+side = Both

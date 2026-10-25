@@ -15,7 +15,8 @@
 
 | 内容 | 位置 |
 |---|---|
-| 模组（.tmod） | 创意工坊订阅，或本项目 **Releases** 里的 `.tmod` |
+| **模组（创意工坊订阅）** | **[Terraria Image Builder · Steam 创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=3826829451)** |
+| 模组（.tmod 直接装） | 本项目 **Releases** 里的 `.tmod` |
 | 桌面程序（免安装 exe） | 本项目 **Releases** 里的 `TerrariaImageBuilder-v*.zip` |
 | 源码 | 本仓库 |
 

@@ -221,6 +221,15 @@ Checksum：移除 Checksum 字段 → 递归按键名 Ordinal 排序 → 紧凑 
 
 ### 已完成并上线
 
+**创意工坊已发布**（2026-10-25 16:41，状态：等待 Steam 服务人员批准，属新模组首次发布正常流程）：
+https://steamcommunity.com/sharedfiles/filedetails/?id=3826829451
+
+发布时踩到的坑（这个 tML 版本 v2024.8.3.0 的发布流程**只认老式三件套**，不读 mod.hjson）：
+- 缺 `build.txt` → 报「You need to specify an author in build.txt」
+- 缺 `description.txt` → 报「文件 description.txt 不存在」
+- `description.txt` **就是工坊页面显示的完整描述**（不是一句话简介），且 Steam 渲染 BBCode 不是 Markdown，粗体要用 `[b]...[/b]`
+- 三个文件现已齐备：`build.txt` / `description.txt` / `icon.png`，`mod.hjson` 保留给构建流程
+
 | 项 | 状态 |
 |---|---|
 | 仓库 | https://github.com/HikeTopZenith/terraria-image-builder （public，远端 HEAD 169f680） |

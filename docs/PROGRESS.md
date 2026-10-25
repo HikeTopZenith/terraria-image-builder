@@ -1,7 +1,7 @@
 # TerrariaImageBuilder · 交接文档
 
 > 新会话开始时先读这个文件，即可接上全部上下文。
-> 最后更新：迭代2 完成（色差升级 + 贴图色库 + 三开关 + 自定义色卡 + 上架加固）v1.2.0
+> 最后更新：v1.2.2 —— 已发布到 GitHub，工坊待上传。**明天从第十二节接着做。**
 
 ---
 
@@ -214,3 +214,74 @@ Checksum：移除 Checksum 字段 → 递归按键名 Ordinal 排序 → 紧凑 
     当前状态：外端已具备 CIEDE2000 匹配 / 贴图色库 / 保色相 / 纯色优先 / 抖动 / 自定义色卡，
     模组端 v1.2.0 已加固，协议与蓝图格式未变。
     现在我想优化：<在这里写你的需求>
+
+---
+
+## 十二、明天从这里接着做（2026-10-25 夜 收工快照）
+
+### 已完成并上线
+
+| 项 | 状态 |
+|---|---|
+| 仓库 | https://github.com/HikeTopZenith/terraria-image-builder （public，远端 HEAD 169f680） |
+| Release | https://github.com/HikeTopZenith/terraria-image-builder/releases/tag/v1.2.2 |
+| 附件 | TerrariaImageBuilder-v1.2.2.zip 47.5 MB · TerrariaImageBuilder.tmod 17.3 MB |
+| 模组 | v1.2.2 已构建（0 警告 0 错误）并装进 Mods 目录 |
+| 测试 | 6 个文件全绿（engine / matcher_v2 / colorimetry / place_command / pipeline_v2 / checksum_golden） |
+| 工坊截图 | docs/screenshots/ 两张 1600×900，也在 D:\deepseek\output\workshop\ |
+
+### 明天要做的三件事（按顺序）
+
+**1. 工坊上传（只有你能做，需要 Steam 登录态）**
+
+- 启动 tModLoader → Workshop → Develop Mods → TerrariaImageBuilder → Build & Reload → Publish
+- 标题：泰拉图像建造台 Terraria Image Builder
+- 描述：粘 WORKSHOP.md 第六节（含下载段）
+- 标签：Utility / Tools / Client Side
+- 截图：上传 docs/screenshots/ 那两张
+- 上传完把链接发出来，回填到 README 与本文档
+
+**2. CI 工作流还差一次授权**
+
+- 文件已写好但推不上去：.github/workflows/tests.yml 目前只在本地
+- 原因：改动 workflow 文件要求 token 带 workflow 权限，缺权限时 GitHub 故意返回 404（不是 payload 问题）
+- 解法：执行 gh auth refresh -h github.com -s workflow，然后跑 python D:\deepseek\_pack\push_via_api.py
+- 备选：在 GitHub 网页手动新建该文件（内容见本地副本）
+
+**3. git 端点仍被网络拦，仓库推送走的是 API**
+
+- github.com:443 超时、api.github.com 正常，所以改用 GitHub Git Data API 推送
+- 后果：本地 HEAD（657e39f）与远端（169f680）内容相同但 SHA 不同
+- 网络恢复后对齐一次：cd D:\deepseek\TerrariaImageBuilder-github && git fetch origin && git reset --hard origin/master
+- 对齐后别忘了把第 2 条那个 workflow 文件补回去
+
+### 明确暂缓（有理由，不是漏了）
+
+- **TcpListener 兜底**：模组用 HttpListener（走 http.sys），理论缺陷是非管理员可能注册失败。
+  但你机器日志显示「WebSocket 服务端已启动」正常，**没有真实故障案例就不动核心网络层**。
+  正确姿势：等有用户报「日志里出现拒绝访问」，拿到日志再改 + 让他实测。
+- **桌面端英文界面**：工坊面向全球，当前 UI 纯中文。工作量中等。
+- **预览用真实贴图纹理**：现在平涂主色；assets/tiles 本地有，但仓库刻意不含（版权）。
+- **选区建造**（框选局部重建，试配色用）。
+- **启动时自动连接**（省一次点击）。
+
+### 本轮踩过并已修的坑（别再踩）
+
+1. **aiohttp 漏打包** —— 发行版 exe 里没有 WS 客户端，界面永远「连接中…」。打包环境必须装 aiohttp
+2. **事件循环竞态** —— 刚启动就点连接，请求会被 _submit 丢弃。start() 已改为等循环就绪
+3. **单文件打包不可用** —— --onefile 缺 Tcl/Tk 数据，会弹标题为 Error 的 Tk 对话框。必须用 --onedir
+4. **PyInstaller 吃不了中文路径** —— 源码先复制到纯 ASCII 路径再打包
+5. **续传的原点检查比错值** —— 比的是上一轮原点，等于没检查；已改为比输入框当前值
+6. **workflow 文件 404 是权限问题**，不是 payload 问题（二分 4 次才定位）
+7. **本机「文档」被重定向**，凡 %USERPROFILE%\Documents 都要按实际盘符替换
+
+### 关键路径速查
+
+    GitHub 仓库      D:\deepseek\TerrariaImageBuilder-github
+    外端源码          D:\文档\My Games\Terraria\tModLoader\ModSources\terraria_builder
+    模组源码          D:\deepseek\TerrariaImageBuilder
+    打包环境          D:\deepseek\_pack\venv        （独立，未污染 ComfyUI）
+    打包脚本          D:\deepseek\_pack\make_release.py
+    API 推送脚本      D:\deepseek\_pack\push_via_api.py
+    发行产物          D:\deepseek\output\release\TerrariaImageBuilder-v1.2.2.zip
+    工坊截图          D:\deepseek\output\workshop\shot1_compare.png / shot2_dither.png

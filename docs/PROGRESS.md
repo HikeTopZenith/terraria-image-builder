@@ -1,7 +1,8 @@
 # TerrariaImageBuilder · 交接文档
 
 > 新会话开始时先读这个文件，即可接上全部上下文。
-> 最后更新：v1.2.2 —— 已发布到 GitHub，工坊待上传。**明天从第十二节接着做。**
+> 最后更新：v1.2.2 已发布（GitHub Releases + 创意工坊审核中）。
+> **下一个任务：第十三节「图片批量队列 + 定格动画排布」。**
 
 ---
 
@@ -224,6 +225,12 @@ Checksum：移除 Checksum 字段 → 递归按键名 Ordinal 排序 → 紧凑 
 **创意工坊已发布**（2026-10-25 16:41，状态：等待 Steam 服务人员批准，属新模组首次发布正常流程）：
 https://steamcommunity.com/sharedfiles/filedetails/?id=3826829451
 
+**工坊描述更新未生效的排查（2026-10-25）**：编辑页已保存，但公开页面仍显示旧描述。
+最可能是 **Steam 审核门**：横幅原文是「需要服务人员批准**其最新版本**」，即每次改动都会生成新版本并重新排队，
+过审前对外仍是上一版。排查顺序：① 重开编辑页看描述框内容（是新文字=已保存）② 无痕窗口打开公开页（排除 CDN 缓存）
+③ 若两者都正常则纯属待审，**不要再反复编辑**（每次改都可能重置队列）。
+注意：本机无法访问 steamcommunity.com / api.steampowered.com（HTTP 000），只能靠用户截图判断。
+
 发布时踩到的坑（这个 tML 版本 v2024.8.3.0 的发布流程**只认老式三件套**，不读 mod.hjson）：
 - 缺 `build.txt` → 报「You need to specify an author in build.txt」
 - 缺 `description.txt` → 报「文件 description.txt 不存在」
@@ -294,3 +301,117 @@ https://steamcommunity.com/sharedfiles/filedetails/?id=3826829451
     API 推送脚本      D:\deepseek\_pack\push_via_api.py
     发行产物          D:\deepseek\output\release\TerrariaImageBuilder-v1.2.2.zip
     工坊截图          D:\deepseek\output\workshop\shot1_compare.png / shot2_dither.png
+
+---
+
+## 十三、待开发：图片批量队列 + 定格动画排布（v1.3.0 目标）
+
+> 用户目标：做**定格动画**。把一帧帧像素画建到世界里，再用剪辑软件拼接成动画。
+> 落点：**全部在外端 Python**，模组端零改动（只复用现有 `AllCompleted` / `ExecutionError` 回执）。
+
+### 13.1 需求（用户原文要点）
+
+1. 多选 / 拖拽导入多张图 → 生成任务队列；队列支持拖拽排序、单独删除、暂停、继续、跳过
+2. **严格串行**：禁止并发下发，防止游戏卡死。一帧完整建成 + 收到完成回执 → 等间隔（2–15s，默认 5s）→ 自动下一帧。失败则暂停队列并弹窗（重试 / 跳过 / 清空）
+3. 排布模式二选一（UI 切换）：
+   - **模式 A｜平铺连环画（默认）**：以第一帧原点为基准，后续帧紧贴接续；默认向右、底边对齐、无重叠无空隙；可切向下，可设帧间空隙
+   - **模式 B｜原地覆盖帧动画**：所有帧固定同一原点，靠新方块覆盖旧方块。**不调用任何清除功能、不依赖 HEROsMod 清除、不新增清除代码**。⚠️ 天然限制：帧内空气区域不会擦除旧方块，留白处会残留上一帧 —— 仅适合每帧铺满方块的素材
+4. 复用全部现有管线：裁剪、旋转镜像、亮度对比度、自定义色卡、色彩匹配、WebSocket、撤销台账 —— **一律不动**
+5. 原有单图导入不受影响，单图仍是"鼠标点哪放哪"；两套逻辑隔离
+6. 兼容 HEROsMod / Better Zoom；**不要恢复已删除的光照、清除等模块**
+
+### 13.2 关键技术结论（先看这条，能省一半工）
+
+**平铺模式不需要修改蓝图的方块坐标，只改指令里的 `OriginX/OriginY`。**
+
+原因：协议里 `PlaceBlocks` 的 `X/Y` 是「相对原点的全局坐标」，外端发指令时才把 origin 一起带上。所以同一份蓝图换个 origin 发出去，整幅画就整体平移到别处 —— 因此每帧各建一次蓝图后，只需计算各自的 origin。
+
+推导（设基准原点 `(bx, by)`，第 i 帧尺寸 `w_i × h_i`，总体最大高度 `H = max(h_i)`，帧间距 `gap`）：
+
+```
+模式 A · 向右：origin_x = bx + Σ(w_0..w_{i-1}) + i*gap
+               origin_y = by + (H - h_i)      # 底边对齐
+模式 A · 向下：origin_y = by + Σ(h_0..h_{i-1}) + i*gap
+               origin_x = bx + (W - w_i)      # 右边对齐（W = max(w_i)）
+模式 B ·      ：所有帧 origin 恒等于 (bx, by)，不做任何偏移
+```
+
+### 13.3 落点与改动清单（按 ARCHITECTURE 第七节扩展指南）
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `ui/queue.py`（新建） | 队列控制器 `FrameQueue` + 状态机 | **纯 Python，不 import tkinter**，才能 headless 测试 |
+| `ui/app.py` | 队列面板（列表 + 排序 + 增删 + 暂停/继续/跳过）、模式开关、间隔滑块、批量导入入口 | 见 13.4 的隔离要求 |
+| `tests/test_frame_queue.py`（新建） | 偏移计算 / 状态机 / 串行性 / 跳过后续位置 | 全 headless |
+| `engine/contract.py` | **不改**（origin 由 `blueprint_to_chunked_command(origin_x=..., origin_y=...)` 传入，已支持） |
+| 模组端 | **不改** | 只依赖现有回执 |
+
+### 13.4 必须遵守的隔离与约束
+
+- **单图流程保持原样**：`on_start_build()` / `_send_next_batch()` 的语义不动。队列走独立入口 `_queue_start_frame()`，不要改造成"队列长度=1 的特殊情况"
+- **拖拽行为要分流**（现状：`ui/app.py:874 _on_drop` 解析多路径后**只取第一个就 return**）：
+  - 拖到**原图画布** → 维持现状：只导入第一张（单图流程）
+  - 拖到**队列面板** → 全部入队（新行为）
+  - 多选文件同理：`on_open_file` 用单选保持，另加「批量添加」按钮用 `askopenfilenames`
+- **串行判定不能只看一批**：单帧可能被 `BATCH_MAX_BLOCKS = 150000`（`app.py:175`）切成多批，必须等该帧**所有批次**都收到 `AllCompleted` 才算这一帧完成
+- **世界边界校验**：模式 A 拼接后总宽度可能超出世界或未加载区域。发送前按 `Main.maxTilesX/Y` 预估并**明确警告**（UI 侧算，模组端已有七道过滤会拦，但要让用户提前知道而不是建一半报错）
+- **与断点续传冲突（重要）**：现有 `resume.json` 按「蓝图指纹 + origin」记账（`app.py` 的 `_resume_path` / `_save_resume`）。多帧场景下每帧 origin 不同、蓝图不同，会互相串味 → **队列模式下要么按任务 id 分别记账，要么直接禁用单图续传**，二选一写进实现说明
+- **模式 B 必须在 UI 上明示限制**：空气不擦除、留白会残留上一帧。不写这句，用户建完发现"糊了"会当成 bug
+
+### 13.5 状态机（建议）
+
+```
+idle ──开始──► building(帧i) ──AllCompleted──► waiting(间隔倒计时) ──► building(帧i+1)
+                     │                                              │
+                     ├─ ExecutionError ──► paused_failed ──重试──┘
+                     │                         └──跳过──► building(帧i+1)
+                     │                         └──清空──► idle
+                     └─ 用户暂停 ──► paused ──继续──► building(帧i)
+全部帧完成 ──► done（清队列记录，若用了续传则清 resume.json）
+}
+```
+
+暂停/跳过的语义要写死：
+
+- **暂停**：不再发新指令；**已下发的当前帧不中断**（模组端 P 键才是真中断，队列暂停只管"下一帧"）
+- **跳过**：跳过当前帧剩余的批次（不再发），直接进入间隔 → 下一帧。注意已建的部分**不回滚**
+- **跳过后的位置必须正确**：模式 A 的偏移是按"帧序号"还是"实际执行顺序"计算？**必须按帧的固定排布位置算**（即第 3 帧被跳过后，第 4 帧仍落在第 4 个位置），否则接续位置会错位 —— 这是验收第 1 条的核心
+
+### 13.6 需要新增的测试（headless，进 `run_tests.bat`）
+
+| 测试 | 断言 |
+|---|---|
+| `test_offset_tile_right` | 向右平铺：第 i 帧 origin_x 递增量 = 前一帧宽 + gap；origin_y 底边对齐（不同高度的帧底边一致） |
+| `test_offset_tile_down` | 向下平铺对称正确 |
+| `test_offset_overlay_same_origin` | 模式 B：所有帧 origin 完全相同 |
+| `test_skip_keeps_position` | 跳过第 2 帧后，第 3 帧仍落在第 3 个槽位（不塌缩） |
+| `test_no_concurrent_send` | 一帧未收到 AllCompleted 前，队列**绝不**发出下一帧指令 |
+| `test_multi_batch_frame_completes_once` | 单帧被切成 3 批时，只有第 3 批的 AllCompleted 才推进队列 |
+| `test_failure_pauses_queue` | 收到 ExecutionError → 状态变 paused_failed，且不再发指令 |
+| `test_single_image_flow_untouched` | 单图流程的 `_send_next_batch` 行为与改动前一致（回归） |
+
+### 13.7 验收（对应用户 7 条，写成可核对的）
+
+- [ ] 平铺模式：帧连成一片、紧贴无重叠；**跳过/暂停后接续位置正确**（不塌缩、不错位）
+- [ ] 原地覆盖模式：固定原点逐帧覆盖，**全程无任何清除调用**（代码里搜不到清除/`ClearTile` 相关新增），间隔可控
+- [ ] 严格串行：抓包或日志可见「上一帧全部批次完成」之后才出现下一帧指令，**无并发发包**
+- [ ] 失败路径：制造一次 ExecutionError（例如传非法 TileId）→ 队列暂停 + 弹窗三选项可用
+- [ ] 单图、色彩、预处理、色卡、工程包、断点续传全部回归正常（`run_tests.bat` 6 个文件 + 手动冒烟）
+- [ ] 模组端 `.tmod` 未重新构建也能正常跑（本轮零改动）
+
+### 13.8 风险与已知取舍
+
+| 风险 | 说明 | 处置 |
+|---|---|---|
+| 平铺 N 帧绘制时间线性增长 | 每帧各自 ≤20 万块上限，但 20 帧 × 2 万块 = 40 万块，按 1900 块/秒约 3.5 分钟 | UI 显示"总帧数 + 预计总耗时" |
+| 模式 B 的残留问题 | 空气区域不擦除，是原生机制决定的 | UI 明示 + 建议用户素材每帧铺满 |
+| 世界越界 | 横向拼接最容易撞边界 | 发送前预估并警告 |
+| 间隔过短导致模组队列未清空 | 理论风险（模组收到新指令时上一条已 AllCompleted） | 间隔下限 2s，且严格等回执后才计时 |
+| 队列与续传台账互相干扰 | 每帧 origin 不同 | 见 13.4 最后一条 |
+
+### 13.9 版本与交付
+
+- 外端版本号升 **1.3.0**（`ui/app.py` 的 `APP_VERSION`），协议版本**不变**（`CLIENT_PROTOCOL_VERSION = 1`）
+- 模组端**不重建**，`.tmod` 保持 v1.2.2
+- 完成后需要：更新 `MANUAL.md`（新增"批量队列"章节）、`ARCHITECTURE.md`（新增 `ui/queue.py` 模块）、`description.txt`（工坊描述加功能点）、`VIDEO_SCRIPT.md`（定格动画是个很好的视频题材）
+- 打包发布：`make_release.py` → 上传 GitHub Releases + 网盘镜像 → 工坊重新发布
